@@ -1,0 +1,89 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+*.egg
+*.egg-info/
+.eggs/
+*.manifest
+*.spec
+
+# Virtual environments
+.venv/
+venv/
+ENV/
+env/
+
+# Distribution / packaging
+build/
+dist/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Pytest
+.pytest_cache/
+
+# Mypy
+.mypy_cache/
+
+# Coverage
+.coverage
+htmlcov/
+
+# IDEs
+.vscode/
+.idea/
+*.sublime-project
+*.sublime-workspace
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Environment variables and secrets
+.env
+.env.*
+secrets.json
+credentials.json
+
+# Docker
+docker-compose.override.yml
+*.log
+
+# Byte-compiled
+*.pyc
+
+# Other
+__pycache__/
+*/__pycache__/
+*.pyo
+
+# Poetry
+poetry.lock
+
+# If you have local images/build artifacts
+*.tar
+
+# Ignore local database files
+*.sqlite3
+
+# Node / JS (if any frontends end up here)
+node_modules/
+
+# Logs
+logs/
+*.log
+
+# Temporary files
+tmp/
+
+# Coverage reports
+coverage/
+
+# Generated files
+*.rej
+
+# Allow tracking lockfiles if you prefer; remove the poetry.lock entry above if so
+# (For deployments/CI you'd normally keep pyproject.toml and poetry.lock in the repo)

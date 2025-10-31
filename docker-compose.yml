@@ -1,0 +1,73 @@
+version: "3.9"
+
+services:
+  # 🚪 API Gateway
+  api-gateway:
+    build: ./api-gateway
+    container_name: api-gateway
+    ports:
+      - "8000:8000"
+    depends_on:
+      - auth-service
+    networks:
+      - microservices-net
+    environment:
+      - AUTH_SERVICE_URL=http://auth-service:8001
+      - WALLET_SERVICE_URL=http://wallet-service:8002
+      - TRANSACTIONS_SERVICE_URL=http://transactions-service:8003
+    env_file:
+      - .env
+    command: >
+      poetry run uvicorn main:app --host 0.0.0.0 --port 8000 --reload
+
+  # 🔑 Auth Service
+  auth-service:
+    build: ./auth-service
+    container_name: auth-service
+    ports:
+      - "8001:8001"
+    networks:
+      - microservices-net
+    environment:
+      - MONGO_URI=mongodb://mongo:27017
+    env_file:
+      - .env
+    depends_on:
+      - mongo
+    command: >
+      poetry run uvicorn app.main:app --host 0.0.0.0 --port 8001 --reload
+
+  # 🧠 MongoDB (para el Auth)
+  mongo:
+    image: mongo:6.0
+    container_name: mongo
+    ports:
+      - "27018:27017"
+    volumes:
+      - mongo_data:/data/db
+    networks:
+      - microservices-net
+
+  # 💰 Wallet Service (lo armamos después)
+  wallet-service:
+    image: nginx:alpine  # placeholder temporal
+    container_name: wallet-service
+    ports:
+      - "8002:8002"
+    networks:
+      - microservices-net
+
+  # 💸 Transactions Service (placeholder)
+  transactions-service:
+    image: nginx:alpine
+    container_name: transactions-service
+    ports:
+      - "8003:8003"
+    networks:
+      - microservices-net
+
+networks:
+  microservices-net:
+
+volumes:
+  mongo_data:
