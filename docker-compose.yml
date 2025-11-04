@@ -14,7 +14,6 @@ services:
     environment:
       - AUTH_SERVICE_URL=http://auth-service:8001
       - WALLET_SERVICE_URL=http://wallet-service:8002
-      - TRANSACTIONS_SERVICE_URL=http://transactions-service:8003
     env_file:
       - .env
     command: >
@@ -48,21 +47,46 @@ services:
     networks:
       - microservices-net
 
-  # 💰 Wallet Service (lo armamos después)
+  # 💰 Wallet Service (Django + Postgres)
   wallet-service:
-    image: nginx:alpine  # placeholder temporal
+    # Build wallet-service from its local Dockerfile and tag the image explicitly
+    image: wallet-system-wallet-service:dev
+    build:
+      context: ./wallet-service #forzado de imagen desde la carpeta correcta
+      dockerfile: dockerfile #dockerfile en minuscula no reconocida en mayuscula
     container_name: wallet-service
+    command: poetry run python manage.py runserver 0.0.0.0:8002
     ports:
       - "8002:8002"
     networks:
       - microservices-net
+    env_file:
+      - ./wallet-service/.env
+    depends_on:
+      - wallet-db
+    volumes:
+      - ./wallet-service:/app
+
+  wallet-db:
+    image: postgres:15
+    container_name: wallet-db
+    environment:
+      - POSTGRES_USER=wallet_user
+      - POSTGRES_PASSWORD=wallet_pass
+      - POSTGRES_DB=wallet_db
+    ports:
+      - "5544:5432"
+    volumes:
+      - wallet_db_data:/var/lib/postgresql/data
+    networks:
+      - microservices-net      
 
   # 💸 Transactions Service (placeholder)
   transactions-service:
     image: nginx:alpine
     container_name: transactions-service
-    ports:
-      - "8003:8003"
+    # Do not start by default; enable with `--profile transactions`
+    profiles: ["transactions"]
     networks:
       - microservices-net
 
@@ -71,3 +95,4 @@ networks:
 
 volumes:
   mongo_data:
+  wallet_db_data:
