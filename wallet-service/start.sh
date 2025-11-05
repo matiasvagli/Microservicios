@@ -1,3 +1,9 @@
+#para corregir el orden de inicio de django y el consumer rabbitmq
+#lo ideal seria usar depend_on en docker-compose, pero no funciona bien con servicios que tardan en estar listos
+#el consumer tendria que ser un servicio aparte, pero por simplicidad lo dejo asi
+
+
+
 #!/bin/bash
 # start.sh — inicia Django + consumer RabbitMQ
 
