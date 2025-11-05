@@ -13,6 +13,7 @@ from motor.motor_asyncio import AsyncIOMotorDatabase
 from datetime import datetime, timedelta
 from jose import JWTError, jwt
 from pydantic import BaseModel
+from app.services.publisher import publish_user_registered
 
 router = APIRouter()
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
@@ -61,6 +62,12 @@ async def register(user: UserCreate, db: AsyncIOMotorDatabase = Depends(get_data
 
     result = await db.users.insert_one(user_dict)
     user_dict["id"] = str(result.inserted_id)
+    
+    # Publicar evento de usuario registrado en RabbitMQ
+    print(f"Intentando publicar evento para usuario nuevo: {result.inserted_id}")
+    publish_user_registered(str(result.inserted_id))
+    print("Después de llamar a publish_user_registered")
+    
     return UserResponse(**user_dict)
 
 

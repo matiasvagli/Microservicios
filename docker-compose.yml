@@ -14,6 +14,7 @@ services:
     environment:
       - AUTH_SERVICE_URL=http://auth-service:8001
       - WALLET_SERVICE_URL=http://wallet-service:8002
+      - TRANSACTIONS_SERVICE_URL=http://transactions-service:8003
     env_file:
       - .env
     command: >
@@ -33,6 +34,7 @@ services:
       - .env
     depends_on:
       - mongo
+      - rabbitmq
     command: >
       poetry run uvicorn app.main:app --host 0.0.0.0 --port 8001 --reload
 
@@ -49,13 +51,14 @@ services:
 
   # 💰 Wallet Service (Django + Postgres)
   wallet-service:
-    # Build wallet-service from its local Dockerfile and tag the image explicitly
     image: wallet-system-wallet-service:dev
     build:
-      context: ./wallet-service #forzado de imagen desde la carpeta correcta
-      dockerfile: dockerfile #dockerfile en minuscula no reconocida en mayuscula
+      context: ./wallet-service
+      dockerfile: dockerfile
     container_name: wallet-service
-    command: poetry run python manage.py runserver 0.0.0.0:8002
+    command:
+      - bash
+      - start.sh
     ports:
       - "8002:8002"
     networks:
@@ -64,6 +67,7 @@ services:
       - ./wallet-service/.env
     depends_on:
       - wallet-db
+      - rabbitmq
     volumes:
       - ./wallet-service:/app
 
@@ -85,8 +89,21 @@ services:
   transactions-service:
     image: nginx:alpine
     container_name: transactions-service
-    # Do not start by default; enable with `--profile transactions`
-    profiles: ["transactions"]
+    ports:
+      - "8003:8003"
+    networks:
+      - microservices-net
+
+  # 🐇 RabbitMQ
+  rabbitmq:
+    image: rabbitmq:3-management
+    container_name: rabbitmq
+    ports:
+      - "5672:5672"     # puerto del broker
+      - "15672:15672"   # panel de control web
+    environment:
+      RABBITMQ_DEFAULT_USER: guest
+      RABBITMQ_DEFAULT_PASS: guest
     networks:
       - microservices-net
 

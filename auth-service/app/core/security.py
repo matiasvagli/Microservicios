@@ -5,10 +5,10 @@ from datetime import datetime, timedelta
 from app.core.config import settings
 
 
-# Cleaned security utilities
+# utilidades de seguridad
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
-
+# verifica si la contraseña en texto plano coincide con la contraseña hasheada
 def verify_password(plain_password: str, hashed_password: str) -> bool:
     return pwd_context.verify(plain_password, hashed_password)
 
@@ -38,7 +38,7 @@ def validate_password_strength(password: str) -> bool:
 
 
 def create_access_token(data: dict, expires_delta: timedelta = None) -> str:
-    to_encode = data.copy()
+    to_encode = data.copy()# ← Este es el payload base (ej: {"sub": user.id, "email": user.email})
     expire = datetime.utcnow() + (expires_delta or timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES))
     to_encode.update({
         "exp": expire,
