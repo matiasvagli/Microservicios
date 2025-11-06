@@ -6,40 +6,59 @@ echo "🚀 Iniciando Wallet Service y RabbitMQ consumer..."
 # Configurar PYTHONPATH al inicio
 export PYTHONPATH=/app
 
-# Variable para rastrear el PID del consumer
-CONSUMER_PID=""
 
-# Función para iniciar el consumer
+# Variables para rastrear los PID de los consumers
+CONSUMER_PID=""
+PAYMENT_CONSUMER_PID=""
+
+
+# Función para iniciar el consumer principal
 start_consumer() {
     if [ ! -z "$CONSUMER_PID" ]; then
         kill $CONSUMER_PID 2>/dev/null || true
     fi
     echo "📥 Iniciando RabbitMQ consumer..."
-    
-    # Ejecutar el consumer directamente con la configuración del entorno
     PYTHONPATH=/app DJANGO_SETTINGS_MODULE=wallet_service.settings \
     python -u wallets/services/consumer.py 2>&1 | tee /app/consumer.log &
-    
     CONSUMER_PID=$!
     echo "Consumer iniciado con PID: $CONSUMER_PID"
 }
 
-# Función para monitorear y reiniciar el consumer si falla
-monitor_consumer() {
+# Función para iniciar el payment consumer
+start_payment_consumer() {
+    if [ ! -z "$PAYMENT_CONSUMER_PID" ]; then
+        kill $PAYMENT_CONSUMER_PID 2>/dev/null || true
+    fi
+    echo "💳 Iniciando Payment Consumer..."
+    PYTHONPATH=/app DJANGO_SETTINGS_MODULE=wallet_service.settings \
+    python -u wallets/services/payment_consumer.py 2>&1 | tee /app/payment_consumer.log &
+    PAYMENT_CONSUMER_PID=$!
+    echo "PaymentConsumer iniciado con PID: $PAYMENT_CONSUMER_PID"
+}
+
+
+# Función para monitorear y reiniciar ambos consumers si fallan
+monitor_consumers() {
     while true; do
         if [ ! -z "$CONSUMER_PID" ] && ! kill -0 $CONSUMER_PID 2>/dev/null; then
             echo "⚠️ Consumer no está corriendo. Reiniciando..."
             start_consumer
         fi
+        if [ ! -z "$PAYMENT_CONSUMER_PID" ] && ! kill -0 $PAYMENT_CONSUMER_PID 2>/dev/null; then
+            echo "⚠️ PaymentConsumer no está corriendo. Reiniciando..."
+            start_payment_consumer
+        fi
         sleep 5
     done
 }
+
 
 # Función para manejar señales de terminación
 cleanup() {
     echo "🛑 Recibida señal de terminación..."
     kill $DJANGO_PID 2>/dev/null || true
     kill $CONSUMER_PID 2>/dev/null || true
+    kill $PAYMENT_CONSUMER_PID 2>/dev/null || true
     kill $MONITOR_PID 2>/dev/null || true
     exit 0
 }
@@ -57,12 +76,14 @@ echo "Django iniciado con PID: $DJANGO_PID"
 echo "⏳ Esperando a que RabbitMQ esté listo..."
 sleep 10
 
-# Inicia el monitor del consumer en segundo plano
-monitor_consumer &
-MONITOR_PID=$!
 
-# Inicia el consumer inicial
+# Inicia ambos consumers
 start_consumer
+start_payment_consumer
+
+# Inicia el monitor de ambos consumers en segundo plano
+monitor_consumers &
+MONITOR_PID=$!
 
 # Mantener el script corriendo y esperar por señales
 while true; do

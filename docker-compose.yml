@@ -133,6 +133,22 @@ services:
     networks:
       - microservices-net
     
+    
+  payment_service:
+    build:
+      context: ./payment-service
+    container_name: payment_service
+    command: poetry run uvicorn main:app --host 0.0.0.0 --port 8004
+    ports:
+      - "8004:8004"
+    env_file:
+      - ./payment-service/.env
+    depends_on:
+      - rabbitmq
+    networks:
+      - microservices-net
+    
+    
 
 networks:
   microservices-net:
