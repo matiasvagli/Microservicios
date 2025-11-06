@@ -132,8 +132,35 @@ services:
       - PYTHONPATH=/app
     networks:
       - microservices-net
-    
-    
+
+  # ⚙️ Celery Worker (reintentos de pagos)
+  payment-worker:
+    build: ./payment-service
+    container_name: payment-worker
+    command: >
+      poetry run celery -A task.celery worker --loglevel=info
+    depends_on:
+      - rabbitmq
+      - mongo
+    environment:
+      - PYTHONPATH=/app
+    networks:
+      - microservices-net
+
+  # ⏱️ Celery Beat (programa los reintentos de pagos)
+  payment-beat:
+    build: ./payment-service
+    container_name: payment-beat
+    command: >
+      poetry run celery -A task.celery beat --loglevel=info
+    depends_on:
+      - rabbitmq
+      - mongo
+    environment:
+      - PYTHONPATH=/app
+    networks:
+      - microservices-net
+
   payment_service:
     build:
       context: ./payment-service
