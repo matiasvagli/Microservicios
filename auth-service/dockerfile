@@ -13,5 +13,7 @@ COPY . /app
 
 EXPOSE 8001
 
-# 👇 Ajuste clave: la app está en /app/app/main.py
-CMD ["poetry", "run", "uvicorn", "app.app.main:app", "--host", "0.0.0.0", "--port", "8001"]
+# Agregar el directorio raíz al PYTHONPATH
+ENV PYTHONPATH=/app
+
+CMD ["poetry", "run", "uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8001"]

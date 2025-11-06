@@ -14,6 +14,7 @@ from datetime import datetime, timedelta
 from jose import JWTError, jwt
 from pydantic import BaseModel
 from app.services.publisher import publish_user_registered
+from app.services.events import publish_event
 
 router = APIRouter()
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
@@ -65,8 +66,9 @@ async def register(user: UserCreate, db: AsyncIOMotorDatabase = Depends(get_data
     
     # Publicar evento de usuario registrado en RabbitMQ
     print(f"Intentando publicar evento para usuario nuevo: {result.inserted_id}")
-    publish_user_registered(str(result.inserted_id))
-    print("Después de llamar a publish_user_registered")
+    # Intentar publicar en la cola de eventos en tiempo real
+    publish_event("user_registered", {"user_id": str(result.inserted_id)}, queue="user_events")
+    print("Evento de registro enviado/guardado")
     
     return UserResponse(**user_dict)
 

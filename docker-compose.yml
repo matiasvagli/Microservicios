@@ -1,5 +1,3 @@
-version: "3.9"
-
 services:
   # 🚪 API Gateway
   api-gateway:
@@ -99,13 +97,42 @@ services:
     image: rabbitmq:3-management
     container_name: rabbitmq
     ports:
-      - "5672:5672"     # puerto del broker
-      - "15672:15672"   # panel de control web
+      - "5672:5672"
+      - "15672:15672"
     environment:
       RABBITMQ_DEFAULT_USER: guest
       RABBITMQ_DEFAULT_PASS: guest
     networks:
       - microservices-net
+
+  # ⚙️ Celery Worker (procesa los reintentos)
+  auth-worker:
+    build: ./auth-service
+    container_name: auth-worker
+    command: >
+      poetry run celery -A task.celery worker --loglevel=info
+    depends_on:
+      - rabbitmq
+      - mongo
+    environment:
+      - PYTHONPATH=/app
+    networks:
+      - microservices-net
+
+  # ⏱️ Celery Beat (programa los reintentos)
+  auth-beat:
+    build: ./auth-service
+    container_name: auth-beat
+    command: >
+      poetry run celery -A task.celery beat --loglevel=info
+    depends_on:
+      - rabbitmq
+      - mongo
+    environment:
+      - PYTHONPATH=/app
+    networks:
+      - microservices-net
+    
 
 networks:
   microservices-net:

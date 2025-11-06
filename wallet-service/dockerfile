@@ -2,21 +2,25 @@ FROM python:3.11-slim
 
 WORKDIR /app
 
-# Instalar Poetry
-RUN pip install --no-cache-dir poetry
+# Instalar Poetry y configurarlo
+RUN pip install --no-cache-dir poetry && \
+    poetry config virtualenvs.create false
 
 # Copiar archivos de dependencias
 COPY pyproject.toml poetry.lock* /app/
 
-# Configurar Poetry para no crear entornos virtuales
-RUN poetry config virtualenvs.create false \
-    && poetry install --no-interaction --no-ansi
+# Instalar dependencias
+RUN poetry install --no-interaction --no-ansi
+
+# Configurar el entorno Python
+ENV PYTHONUNBUFFERED=1
+ENV PYTHONPATH=/app
 
 # Copiar el resto del código
 COPY . /app
 
-# 🔹 Asegurar permisos de ejecución para el script de arranque
+# Asegurar permisos de ejecución para el script de arranque
 RUN chmod +x /app/start.sh
 
-# 🔹 Comando que arranca Django y el consumer en paralelo
+# Comando que arranca Django y el consumer en paralelo
 CMD ["bash", "start.sh"]
