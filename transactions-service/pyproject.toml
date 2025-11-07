@@ -1,29 +1,25 @@
 [project]
-name = "transactions-service"
+name = "transactions_service"
 version = "0.1.0"
-description = ""
+description = "servicio de transferencias"
 authors = [
-    {name = "Matias Vagliviello",email = "vaglimatias@gmail.com"}
+    {name = "Tu Nombre",email = "vaglimatias@gmail.com"}
 ]
 readme = "README.md"
 requires-python = ">=3.10"
 dependencies = [
-    "fastapi (>=0.120.2,<0.121.0)",
-    "uvicorn (>=0.38.0,<0.39.0)",
+    "django (>=5.2.8,<6.0.0)",
+    "django-ninja (>=1.4.5,<2.0.0)",
     "psycopg2-binary (>=2.9.11,<3.0.0)",
+    "celery (>=5.5.3,<6.0.0)",
+    "pika (>=1.3.2,<2.0.0)",
     "python-dotenv (>=1.2.1,<2.0.0)"
 ]
 
 
 [build-system]
-build-backend = "poetry.core.masonry.api"
 requires = ["poetry-core>=2.0.0,<3.0.0"]
-package-mode = false
-    # Removed duplicate build-backend line
+build-backend = "poetry.core.masonry.api"
 
 [tool.poetry]
-name = "transactions-service"
-version = "0.1.0"
-description = ""
-authors = ["Matias"]
 package-mode = false
