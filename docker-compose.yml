@@ -70,27 +70,58 @@ services:
       - ./wallet-service:/app
 
   wallet-db:
-    image: postgres:15
-    container_name: wallet-db
-    environment:
-      - POSTGRES_USER=wallet_user
-      - POSTGRES_PASSWORD=wallet_pass
-      - POSTGRES_DB=wallet_db
-    ports:
-      - "5544:5432"
-    volumes:
-      - wallet_db_data:/var/lib/postgresql/data
-    networks:
-      - microservices-net      
+      image: postgres:15
+      container_name: wallet-db
+      environment:
+        - POSTGRES_USER=wallet_user
+        - POSTGRES_PASSWORD=wallet_pass_123
+        - POSTGRES_DB=wallet_db
+      ports:
+        - "5544:5432"
+      volumes:
+        - wallet_db_data:/var/lib/postgresql/data
+      networks:
+        - microservices-net
 
-  # 💸 Transactions Service (placeholder)
+  transactions-db:
+      image: postgres:15
+      container_name: transactions-db
+      environment:
+        - POSTGRES_USER=trans_user
+        - POSTGRES_PASSWORD=trans_pass_123
+        - POSTGRES_DB=transactions_db
+      ports:
+        - "5545:5432"
+      volumes:
+        - transactions_db_data:/var/lib/postgresql/data
+      networks:
+        - microservices-net
+
+  # 💸 Transactions Service (Django + Postgres)
   transactions-service:
-    image: nginx:alpine
+    image: wallet-system-transactions-service:dev
+    build:
+      context: ./transactions-service
+      dockerfile: dockerfile
     container_name: transactions-service
+    command:
+      - poetry
+      - run
+      - python
+      - manage.py
+      - runserver
+      - 0.0.0.0:8003
     ports:
       - "8003:8003"
     networks:
       - microservices-net
+    env_file:
+      - ./transactions-service/.env
+    depends_on:
+      - transactions-db
+      - rabbitmq
+    volumes:
+      - ./transactions-service:/app
 
   # 🐇 RabbitMQ
   rabbitmq:
@@ -183,3 +214,4 @@ networks:
 volumes:
   mongo_data:
   wallet_db_data:
+  transactions_db_data:

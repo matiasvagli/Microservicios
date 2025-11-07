@@ -1,10 +1,9 @@
-
-
 from fastapi import FastAPI
 from core.middleware import JWTMiddleware
 from proxies.auth_proxy import router as auth_router
 from proxies.wallet_proxy import router as wallet_router
 from proxies.transactions_proxy import router as transactions_router
+from proxies.payments_proxy import router as payments_router
 
 app = FastAPI(title="API Gateway")
 
@@ -15,6 +14,7 @@ app.add_middleware(JWTMiddleware)
 app.include_router(auth_router)
 app.include_router(wallet_router)
 app.include_router(transactions_router)
+app.include_router(payments_router)
 
 @app.get("/")
 def root():
