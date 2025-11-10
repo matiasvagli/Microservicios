@@ -8,7 +8,13 @@ class UserBase(BaseModel):
     full_name: str
 
 
+
 class UserCreate(UserBase):
+    password: str
+
+# Modelo para login de usuario (usado en los tests de login)
+class UserLogin(BaseModel):
+    email: EmailStr
     password: str
 
 
