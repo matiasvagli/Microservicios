@@ -47,7 +47,13 @@ async def get_current_user(token: str = Depends(oauth2_scheme), db: AsyncIOMotor
     return user
 
 
-@router.post("/register", response_model=UserResponse)
+@router.post(
+    "/register",
+    response_model=UserResponse,
+    tags=["Auth"],
+    summary="Registrar nuevo usuario",
+    description="Crea un usuario en la base de datos y publica el evento 'user_registered' en RabbitMQ."
+)
 async def register(user: UserCreate, db: AsyncIOMotorDatabase = Depends(get_database)):
     existing_user = await db.users.find_one({"email": user.email})
     if existing_user:
@@ -73,7 +79,13 @@ async def register(user: UserCreate, db: AsyncIOMotorDatabase = Depends(get_data
     return UserResponse(**user_dict)
 
 
-@router.post("/token", response_model=Token)
+@router.post(
+    "/token",
+    response_model=Token,
+    tags=["Auth"],
+    summary="Login de usuario y obtención de tokens",
+    description="Verifica credenciales y devuelve access/refresh tokens JWT. Guarda el refresh token en la base de datos."
+)
 async def login(form_data: OAuth2PasswordRequestForm = Depends(), db: AsyncIOMotorDatabase = Depends(get_database)):
     user = await db.users.find_one({"email": form_data.username})
     if not user or not verify_password(form_data.password, user["hashed_password"]):
@@ -97,7 +109,13 @@ async def login(form_data: OAuth2PasswordRequestForm = Depends(), db: AsyncIOMot
     return {"access_token": access_token, "refresh_token": refresh_token, "token_type": "bearer"}
 
 
-@router.post("/token/refresh", response_model=Token)
+@router.post(
+    "/token/refresh",
+    response_model=Token,
+    tags=["Auth"],
+    summary="Rotar refresh token y obtener nuevos tokens",
+    description="Recibe un refresh token válido, lo verifica y devuelve nuevos access/refresh tokens. Si el token fue rotado o es inválido, devuelve error."
+)
 async def refresh_token(data: RefreshRequest, db: AsyncIOMotorDatabase = Depends(get_database)):
     try:
         refresh_token = data.refresh_token # Obtener el refresh token del cuerpo de la solicitud
