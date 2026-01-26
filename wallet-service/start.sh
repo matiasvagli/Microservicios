@@ -10,6 +10,7 @@ export PYTHONPATH=/app
 # Variables para rastrear los PID de los consumers
 CONSUMER_PID=""
 PAYMENT_CONSUMER_PID=""
+TRANSACTION_CONSUMER_PID=""
 
 
 # Función para iniciar el consumer principal
@@ -36,8 +37,20 @@ start_payment_consumer() {
     echo "PaymentConsumer iniciado con PID: $PAYMENT_CONSUMER_PID"
 }
 
+# Función para iniciar el transaction consumer
+start_transaction_consumer() {
+    if [ ! -z "$TRANSACTION_CONSUMER_PID" ]; then
+        kill $TRANSACTION_CONSUMER_PID 2>/dev/null || true
+    fi
+    echo "💸 Iniciando Transaction Consumer..."
+    PYTHONPATH=/app DJANGO_SETTINGS_MODULE=wallet_service.settings \
+    python -u wallets/services/transaction_consumer.py 2>&1 | tee /app/transaction_consumer.log &
+    TRANSACTION_CONSUMER_PID=$!
+    echo "TransactionConsumer iniciado con PID: $TRANSACTION_CONSUMER_PID"
+}
 
-# Función para monitorear y reiniciar ambos consumers si fallan
+
+# Función para monitorear y reiniciar los consumers si fallan
 monitor_consumers() {
     while true; do
         if [ ! -z "$CONSUMER_PID" ] && ! kill -0 $CONSUMER_PID 2>/dev/null; then
@@ -47,6 +60,10 @@ monitor_consumers() {
         if [ ! -z "$PAYMENT_CONSUMER_PID" ] && ! kill -0 $PAYMENT_CONSUMER_PID 2>/dev/null; then
             echo "⚠️ PaymentConsumer no está corriendo. Reiniciando..."
             start_payment_consumer
+        fi
+        if [ ! -z "$TRANSACTION_CONSUMER_PID" ] && ! kill -0 $TRANSACTION_CONSUMER_PID 2>/dev/null; then
+            echo "⚠️ TransactionConsumer no está corriendo. Reiniciando..."
+            start_transaction_consumer
         fi
         sleep 5
     done
@@ -59,6 +76,7 @@ cleanup() {
     kill $DJANGO_PID 2>/dev/null || true
     kill $CONSUMER_PID 2>/dev/null || true
     kill $PAYMENT_CONSUMER_PID 2>/dev/null || true
+    kill $TRANSACTION_CONSUMER_PID 2>/dev/null || true
     kill $MONITOR_PID 2>/dev/null || true
     exit 0
 }
@@ -77,11 +95,12 @@ echo "⏳ Esperando a que RabbitMQ esté listo..."
 sleep 10
 
 
-# Inicia ambos consumers
+# Inicia los consumers
 start_consumer
 start_payment_consumer
+start_transaction_consumer
 
-# Inicia el monitor de ambos consumers en segundo plano
+# Inicia el monitor de consumers en segundo plano
 monitor_consumers &
 MONITOR_PID=$!
 
