@@ -22,6 +22,7 @@ class TransactionOut(Schema):
     amount: Decimal
     currency: str
     status: str
+    saga_step: str
     reason: str
     created_at: datetime
     updated_at: datetime

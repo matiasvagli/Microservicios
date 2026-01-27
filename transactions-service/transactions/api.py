@@ -33,8 +33,8 @@ def transfer(request, payload: TransactionCreate):
             currency=payload.currency,
             reason=(payload.reason or ""),
             status=Transaction.Status.PENDING,
+            saga_step=Transaction.SagaStep.PENDING,
         )
-        # For now, no balance checks; integration with wallet service will be handled later
         # Create an outbox event for the transaction creation
         Outbox.objects.create(
             topic="transaction.created",
@@ -48,6 +48,11 @@ def transfer(request, payload: TransactionCreate):
                 "status": tx.status,
             },
         )
+    
+    # 🚀 Disparar la saga inmediatamente (asíncrono)
+    from tasks.saga_tasks import process_transaction_saga
+    process_transaction_saga.apply_async(args=[str(tx.id)], countdown=1)
+    
     return tx
 
 
@@ -62,6 +67,34 @@ def update_status(request, tx_id: str, payload: StatusUpdate):
         "transaction_id": str(tx.id),
         "status": tx.status,
     })
+    return tx
+
+
+@router.post("/transactions/{tx_id}/retry", response=TransactionOut)
+def retry_failed_transaction(request, tx_id: str):
+    """Reinicia una Saga que falló (idempotent)"""
+    tx = get_object_or_404(Transaction, id=tx_id)
+    
+    if tx.status != Transaction.Status.FAILED:
+        return {"error": "Only failed transactions can be retried"}
+    
+    # Reset para reintentar
+    tx.status = Transaction.Status.PENDING
+    tx.saga_step = Transaction.SagaStep.PENDING
+    tx.debit_idempotency_key = None
+    tx.credit_idempotency_key = None
+    tx.reason = ""
+    tx.save()
+    
+    Outbox.objects.create(
+        topic="transaction.retry_requested",
+        payload={"transaction_id": str(tx.id)}
+    )
+    
+    # Disparar saga nuevamente
+    from tasks.saga_tasks import process_transaction_saga
+    process_transaction_saga.apply_async(args=[str(tx.id)], countdown=2)
+    
     return tx
 
 

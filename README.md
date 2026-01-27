@@ -1,78 +1,292 @@
-# 🧩 Wallet System — Arquitectura de Microservicios
+# 🚀 Wallet System - Saga Pattern MVP
 
-Proyecto profesional de alto impacto que implementa un sistema de **Billetera Virtual** modular, diseñado con una arquitectura **orientada a eventos** y principios de **resiliencia y alta disponibilidad**.
+Sistema de transacciones distribuidas con **Saga Pattern Orquestado**, compensaciones automáticas e idempotencia completa.
 
----
+## 📋 Quick Links
 
-## 🛠️ Tech Stack
-
-![Python](https://img.shields.io/badge/python-3670A0?style=for-the-badge&logo=python&logoColor=ffdd54)
-![FastAPI](https://img.shields.io/badge/FastAPI-005571?style=for-the-badge&logo=fastapi)
-![Django](https://img.shields.io/badge/django-%23092e20.svg?style=for-the-badge&logo=django&logoColor=white)
-![Docker](https://img.shields.io/badge/docker-%230db7ed.svg?style=for-the-badge&logo=docker&logoColor=white)
-![RabbitMQ](https://img.shields.io/badge/RabbitMQ-FF6600?style=for-the-badge&logo=rabbitmq&logoColor=white)
-![Celery](https://img.shields.io/badge/celery-%2337814a.svg?style=for-the-badge&logo=celery&logoColor=white)
-![MongoDB](https://img.shields.io/badge/MongoDB-%234ea94b.svg?style=for-the-badge&logo=mongodb&logoColor=white)
-![PostgreSQL](https://img.shields.io/badge/postgres-%23316192.svg?style=for-the-badge&logo=postgresql&logoColor=white)
+- [Quick Start (Docker)](#-quick-start-docker)
+- [Arquitectura](#-arquitectura)
+- [Saga Pattern](#-saga-pattern)
+- [API](#-api)
+- [Testing](#-testing)
 
 ---
 
-## 🏗️ Arquitectura del Sistema
-
-El sistema utiliza un **API Gateway** como punto de entrada único, delegando responsabilidades a microservicios especializados que se comunican de forma tanto sincrónica (HTTP/REST) como asincrónica (RabbitMQ).
-
-```mermaid
-graph TD
-    User([Usuario]) --> Gateway[API Gateway - FastAPI]
-    
-    subgraph Microservicios
-        Gateway --> Auth[Auth Service - FastAPI + MongoDB]
-        Gateway --> Wallet[Wallet Service - Django + SQLite/PG]
-        Gateway --> Trans[Transactions Service - Django + PG]
-        Gateway --> Payment[Payment Service - FastAPI + Celery]
-    end
-
-    subgraph Mensajería
-        Auth -- Event: User Registered --> Broker[(RabbitMQ)]
-        Broker --> Wallet -- Create Wallet --> Wallet
-        Trans -- Transaction Events --> Broker
-    end
-```
-
-### 🧠 Patrones de Diseño Implementados
-- **API Gateway**: Centralización de autenticación JWT y ruteo.
-- **Transactional Outbox**: Asegura que los eventos no se pierdan si el broker falla durante una transacción.
-- **Saga Pattern (Coreografía)**: Gestión de consistencia eventual entre los servicios de transacciones y billeteras para completar transferencias.
-- **Event-Driven**: Comunicación desacoplada mediante RabbitMQ/Celery.
-
----
-
-## 🚀 Características Principales
-- ✅ **Autenticación Robusta**: JWT con expiración y seguridad bcrypt.
-- ✅ **Gestión de Billeteras**: Creación automática al registrarse mediante eventos.
-- ✅ **Transferencias Seguras**: Lógica de idempontencia para evitar cobros duplicados y validación de saldo atómica.
-- ✅ **Resiliencia**: Manejo de eventos pendientes y reintentos automáticos.
-
----
-
-## 💻 Cómo ejecutar localmente
+## 🐳 Quick Start (Docker)
 
 ### Requisitos
-- Docker y Docker Compose
-- Poetry (opcional para desarrollo local)
+- Docker & Docker Compose
+- 8GB RAM mínimo
 
-### Pasos
-1. Clonar el repositorio.
-2. Configurar las variables de entorno (puedes usar `.env.example` en cada servicio).
-3. Levantar la infraestructura:
-   ```bash
-   docker-compose up --build
-   ```
-4. El sistema estará disponible en `http://localhost:8000`.
+### Levantar TODO
+
+```bash
+cd /home/matiasdev/wallet-system
+docker-compose up -d
+docker-compose ps
+```
+
+✅ **Todo funciona junto. Sin terminales separadas.**
+
+### Parar
+
+```bash
+docker-compose down -v
+```
 
 ---
 
-## 📄 Documentación detallada
-- [Arquitectura de Eventos](file:///home/matiasdev/wallet-system/ariquitectura_por_eventos.md)
-- [API Gateway](file:///home/matiasdev/wallet-system/api-gateway/README.md)
-- [Auth Service](file:///home/matiasdev/wallet-system/auth-service/auth-service.md)
+## 🏗️ Arquitectura
+
+```
+┌─────────────────────────────────────────────────────────┐
+│                    API Gateway (8000)                   │
+└─────────────┬───────────────────────────────────────────┘
+              │
+    ┌─────────┼──────────┬──────────┐
+    │         │          │          │
+┌───▼──┐  ┌──▼────┐ ┌──▼────┐ ┌──▼────┐
+│Auth  │  │Wallet │ │Trans. │ │Paym.  │
+│8001  │  │8002   │ │8003   │ │8004   │
+└──────┘  └───┬───┘ └───┬───┘ └───────┘
+              │         │
+          ┌───▼──────┐ ┌┴───────────────────┐
+          │Postgres  │ │ SAGA ORCHESTRATOR  │
+          │  Wallet  │ │ (Celery + Redis)   │
+          └──────────┘ └──┬───────┬─────────┘
+                          │       │
+                    ┌─────▼─┐    │
+                    │ Redis │    │
+                    │Celery │    │
+                    └───────┘    │
+                           ┌─────▼──────┐
+                           │ RabbitMQ   │
+                           │ (Events)   │
+                           └────────────┘
+```
+
+---
+
+## 🔄 Saga Pattern
+
+### Flujo de Transferencia
+
+```
+POST /transactions/transfer
+    ↓ (status: PENDING)
+    ↓ (Celery detecta evento ~1s)
+    ↓
+Saga Orchestrator ejecuta:
+  ├─ DEBITING: wallet.debit(payer) ✅
+  ├─ CREDITING: wallet.credit(payee)
+  │   ├─ ✅ → COMPLETED ✅
+  │   └─ ❌ → COMPENSATING: reversa debit ✅ → FAILED ✅
+  └─ Si compensación falla → CRITICAL 🚨 (manual review)
+```
+
+### Idempotencia (Triple Layer)
+
+**Resultado:** Puedes reintentar ∞ veces sin duplicar
+
+| Layer | Propósito |
+|-------|-----------|
+| `Transaction.idempotency_key` | No duplicar transfers |
+| `debit_idempotency_key` | No duplicar debits |
+| `credit_idempotency_key` | No duplicar credits |
+
+### Reintentos (Backoff Exponencial)
+
+```
+Intento 1: Inmediato
+Intento 2: 60 segundos
+Intento 3: 120 segundos
+Intento 4: 240 segundos
+Intento 5: Dead Letter Queue 🚨
+```
+
+---
+
+## 📡 API
+
+### Crear Transferencia
+
+```bash
+curl -X POST http://localhost:8003/api/transactions/transfer \
+  -H "Content-Type: application/json" \
+  -d '{
+    "idempotency_key": "test-001",
+    "payer_user_id": "user_a",
+    "payee_user_id": "user_b",
+    "amount": "100.00"
+  }'
+```
+
+### Ver Transferencia
+
+```bash
+curl http://localhost:8003/api/transactions/{id}
+```
+
+(Espera 2s → status: COMPLETED ✅)
+
+### Debitar Wallet
+
+```bash
+curl -X POST http://localhost:8002/api/wallets/user_a/debit \
+  -H "Content-Type: application/json" \
+  -d '{"amount": "50.00", "idempotency_key": "debit-001"}'
+```
+
+### Acreditar Wallet
+
+```bash
+curl -X POST http://localhost:8002/api/wallets/user_b/credit \
+  -H "Content-Type: application/json" \
+  -d '{"amount": "50.00", "idempotency_key": "credit-001"}'
+```
+
+---
+
+## 🧪 Testing
+
+### Tests Saga (7 cases)
+
+```bash
+docker-compose exec transactions-service \
+  poetry run python manage.py test transactions.test_saga \
+  --settings=transactions_service.settings_test -v 2
+```
+
+**Esperado:** `Ran 7 tests - OK ✅`
+
+### Tests Wallet (9 cases)
+
+```bash
+docker-compose exec wallet-service \
+  poetry run python manage.py test wallets.test_operations -v 2
+```
+
+**Esperado:** `Ran 9 tests - OK ✅`
+
+### Test End-to-End
+
+```bash
+# 1. Crear transfer
+curl -X POST http://localhost:8003/api/transactions/transfer \
+  -H "Content-Type: application/json" \
+  -d '{"idempotency_key":"test-1","payer_user_id":"user_a","payee_user_id":"user_b","amount":"100.00"}'
+
+# 2. Esperar 2s
+sleep 2
+
+# 3. Verificar
+curl http://localhost:8003/api/transactions | jq '.[] | {status, saga_step}'
+# Esperado: {"status": "COMPLETED", "saga_step": "COMPLETED"}
+```
+
+---
+
+## 📊 Servicios & Puertos
+
+| Servicio | Puerto | Status |
+|----------|--------|--------|
+| API Gateway | 8000 | 🟢 |
+| Auth Service | 8001 | 🟢 |
+| Wallet Service | 8002 | 🟢 |
+| **Transactions Service** | **8003** | **🟢 + SAGA** |
+| Payment Service | 8004 | 🟢 |
+| RabbitMQ | 5672 | 🟢 |
+| RabbitMQ Admin | 15672 | 🟢 |
+| **Redis (Celery)** | **6379** | **🟢** |
+| Postgres (Wallet) | 5544 | 🟢 |
+| Postgres (Trans.) | 5545 | 🟢 |
+| MongoDB | 27018 | 🟢 |
+
+---
+
+## 🔍 Monitoreo
+
+### RabbitMQ Admin
+```
+http://localhost:15672
+guest / guest
+```
+
+### Logs en Tiempo Real
+
+```bash
+# Saga processor
+docker-compose logs -f transactions-worker
+
+# Scheduler
+docker-compose logs -f transactions-beat
+
+# Todos
+docker-compose logs -f
+```
+
+### Base de Datos
+
+```bash
+# Conectar a Transactions DB
+psql -h localhost -p 5545 -U trans_user -d transactions_db
+
+# Ver transacciones
+SELECT id, status, saga_step FROM transactions_transaction;
+
+# Ver eventos
+SELECT topic, created_at, published_at FROM transactions_outbox;
+```
+
+---
+
+## ⚙️ Configuración
+
+**Automático en docker-compose.yml**
+
+Variables más importantes:
+- `WALLET_SERVICE_URL=http://wallet-service:8002`
+- `CELERY_BROKER_URL=redis://redis:6379/0`
+- `DB_HOST=transactions-db`
+
+---
+
+## 🆘 Troubleshooting
+
+### "transactions-service no levanta"
+```bash
+docker-compose logs transactions-service
+docker-compose exec transactions-service \
+  poetry run python manage.py migrate --settings=transactions_service.settings
+```
+
+### "Celery no procesa"
+```bash
+docker-compose exec redis redis-cli ping
+# Respuesta: PONG
+docker-compose logs transactions-worker
+```
+
+### Reset completo
+```bash
+docker-compose down -v && docker-compose up -d
+```
+
+---
+
+## ✨ Características
+
+✅ Saga Pattern Orquestado
+✅ Compensaciones Automáticas
+✅ Idempotencia Triple-Layer
+✅ Reintentos Exponenciales
+✅ Dead Letter Queue
+✅ 16+ Tests Completos
+✅ Docker Compose Ready
+✅ Documentación
+
+---
+
+
+**Última actualización:** 26 Enero 2026
+

@@ -10,6 +10,13 @@ class Transaction(models.Model):
         COMPLETED = 'COMPLETED', 'Completed'
         FAILED = 'FAILED', 'Failed'
 
+    class SagaStep(models.TextChoices):
+        PENDING = 'PENDING', 'Pending'
+        DEBITING = 'DEBITING', 'Debiting'
+        CREDITING = 'CREDITING', 'Crediting'
+        COMPENSATING = 'COMPENSATING', 'Compensating'
+        COMPLETED = 'COMPLETED', 'Completed'
+        FAILED = 'FAILED', 'Failed'
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     idempotency_key = models.CharField(max_length=64, unique=True)
@@ -18,7 +25,10 @@ class Transaction(models.Model):
     amount = models.DecimalField(max_digits=18, decimal_places=2)
     currency = models.CharField(max_length=10, default="ars")
     status = models.CharField(max_length=16, choices=Status.choices, default=Status.PENDING)
+    saga_step = models.CharField(max_length=16, choices=SagaStep.choices, default=SagaStep.PENDING)
     reason = models.CharField(max_length=200, blank=True, default="")
+    debit_idempotency_key = models.CharField(max_length=64, unique=True, null=True, blank=True)
+    credit_idempotency_key = models.CharField(max_length=64, unique=True, null=True, blank=True)
     created_at = models.DateTimeField(default=timezone.now)
     updated_at = models.DateTimeField(auto_now=True)
 
