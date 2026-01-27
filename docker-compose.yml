@@ -146,13 +146,11 @@ services:
   # ⚙️ Celery Worker (Saga Pattern - Transactions)
   transactions-worker:
     image: wallet-system-transactions-service:dev
-    build:
-      context: ./transactions-service
-      dockerfile: dockerfile
     container_name: transactions-worker
     command: >
       poetry run celery -A tasks.saga_tasks worker --loglevel=info
     depends_on:
+      - transactions-service
       - redis
       - transactions-db
       - rabbitmq
@@ -175,13 +173,11 @@ services:
   # ⏱️ Celery Beat (Scheduler - Transactions)
   transactions-beat:
     image: wallet-system-transactions-service:dev
-    build:
-      context: ./transactions-service
-      dockerfile: dockerfile
     container_name: transactions-beat
     command: >
       poetry run celery -A tasks.saga_tasks beat --loglevel=info
     depends_on:
+      - transactions-service
       - redis
       - transactions-db
       - rabbitmq
