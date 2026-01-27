@@ -1,6 +1,26 @@
 # 🚀 Wallet System - Saga Pattern MVP
 
-Sistema de transacciones distribuidas con **Saga Pattern Orquestado**, compensaciones automáticas e idempotencia completa.
+## ¿Qué es esto?
+
+Es un **sistema de billetera digital** (wallet system) donde los usuarios pueden:
+- 📝 Registrarse y autenticarse
+- 💰 Crear billeteras con saldo
+- 💸 Transferir dinero entre usuarios
+- 💳 Procesar pagos
+- 📊 Ver historial de transacciones
+
+**Lo especial:** Todas las transacciones usan el **Saga Pattern** (orquestación distribuida) para garantizar que si algo falla a mitad del proceso, se revierten automáticamente los cambios. Es como una transacción ACID pero distribuida entre múltiples microservicios.
+
+### 🎯 MVP para demostrar
+
+Este es un MVP (producto mínimo viable) que demuestra:
+- ✅ **Eventos**: Cada acción genera eventos que otros servicios escuchan
+- ✅ **Saga Pattern**: Orquestación de transacciones distribuidas
+- ✅ **Microservicios**: 4 servicios independientes que se comunican
+- ✅ **Compensaciones**: Si algo falla, se revierte automáticamente
+- ✅ **Idempotencia**: Mismo resultado aunque se repita la operación
+
+---
 
 ## 📋 Quick Links
 
@@ -67,7 +87,94 @@ docker-compose down -v
 
 ---
 
-## 🔄 Saga Pattern
+## � Autenticación (JWT + Firmas)
+
+### Flujo de Autenticación
+
+1. **Registro (POST /auth/register)**
+   - Contraseña hasheada con **bcrypt**
+   - Usuario guardado en MongoDB
+   - Evento `user_registered` publicado en RabbitMQ
+
+2. **Login (POST /auth/token)**
+   - Credenciales validadas
+   - Se generan **2 tokens JWT**:
+     - `access_token`: Expira en 15 minutos (acceso a APIs)
+     - `refresh_token`: Expira en 7 días (generar nuevos tokens)
+   - `refresh_token` almacenado en BD para validación (rotación)
+
+3. **Token Refresh (POST /auth/token/refresh)**
+   - Valida el `refresh_token` con firma JWT
+   - Verifica que no haya sido **rotado** (comparación con BD)
+   - Genera nuevos tokens
+   - Anterior `refresh_token` es reemplazado (previene reutilización)
+
+### JWT - Firma y Payload
+
+**Header:**
+```json
+{
+  "alg": "HS256",
+  "typ": "JWT"
+}
+```
+
+**Payload (access_token):**
+```json
+{
+  "sub": "user@example.com",
+  "exp": 1706289600,
+  "type": "access"
+}
+```
+
+**Payload (refresh_token):**
+```json
+{
+  "sub": "user@example.com",
+  "exp": 1706894400,
+  "type": "refresh"
+}
+```
+
+**Firma:** `HMAC-SHA256(base64(header) + "." + base64(payload), SECRET_KEY)`
+
+### Validaciones de Seguridad
+
+| Validación | Descripción |
+|------------|-------------|
+| **Contraseña** | 8-64 caracteres, mayúscula, minúscula, número |
+| **Token expiry** | Access (15m), Refresh (7d) |
+| **Token type** | Access vs Refresh (previene confusión) |
+| **Refresh rotation** | Token anterior invalidado (previene reutilización) |
+| **Signature verification** | Valida que no fue modificado |
+
+### Endpoints de Auth
+
+```bash
+# Registro
+curl -X POST http://localhost:8001/auth/register \
+  -H "Content-Type: application/json" \
+  -d '{"email": "user@test.com", "password": "Pass123456"}'
+
+# Login
+curl -X POST http://localhost:8001/auth/token \
+  -H "Content-Type: application/x-www-form-urlencoded" \
+  -d "username=user@test.com&password=Pass123456"
+
+# Refresh Token
+curl -X POST http://localhost:8001/auth/token/refresh \
+  -H "Content-Type: application/json" \
+  -d '{"refresh_token": "eyJ0eXAiOiJKV1QiLCJhbGc..."}'
+
+# Usar token en otros endpoints
+curl http://localhost:8002/api/wallets \
+  -H "Authorization: Bearer eyJ0eXAiOiJKV1QiLCJhbGc..."
+```
+
+---
+
+## �🔄 Saga Pattern
 
 ### Flujo de Transferencia
 
